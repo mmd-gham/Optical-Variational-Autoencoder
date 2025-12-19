@@ -1,0 +1,67 @@
+import torch
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.manifold import TSNE
+
+def plot_reconstructions(model, dataloader, device="cpu", num_images=8):
+    model.eval()
+    with torch.no_grad():
+        x,_ = next(iter(dataloader))
+        x = x.to(device)
+        recon,_,_ = model(x)
+    plt.figure(figsize=(12,3))
+    for i in range(num_images):
+        plt.subplot(2,num_images,i+1)
+        plt.imshow(x[i,0].cpu(), cmap="gray")
+        plt.axis("off")
+        plt.subplot(2,num_images,i+1+num_images)
+        plt.imshow(recon[i,0].cpu(), cmap="gray")
+        plt.axis("off")
+    plt.suptitle("Original (top) vs Reconstructed (bottom)")
+    plt.show()
+
+def plot_latent_tsne(model, dataloader, device="cpu"):
+    model.eval()
+    zs, labels = [], []
+    with torch.no_grad():
+        for x,y in dataloader:
+            x = x.to(device)
+            _, mu, _ = model(x)
+            zs.append(mu.cpu())
+            labels.append(y)
+    zs = torch.cat(zs).numpy()
+    labels = torch.cat(labels).numpy()
+
+    tsne = TSNE(n_components=2, random_state=0)
+    z2 = tsne.fit_transform(zs)
+
+    plt.figure(figsize=(8,6))
+    sns.scatterplot(x=z2[:,0], y=z2[:,1], hue=labels, palette="tab10")
+    plt.title("t-SNE of Latent Space")
+    plt.show()
+
+def plot_phase_masks(model, max_masks=6):
+    layers = [model.enc1, model.enc2]
+    for idx, layer in enumerate(layers):
+        phase = layer.phase.detach().cpu().numpy()
+        plt.figure(figsize=(12,3))
+        for c in range(min(max_masks, phase.shape[0])):
+            plt.subplot(1,phase.shape[0],c+1)
+            plt.imshow(phase[c], cmap="twilight")
+            plt.title(f"Layer{idx} channel{c}")
+            plt.axis("off")
+        plt.suptitle(f"Phase Masks Encoder {idx}")
+        plt.show()
+
+def plot_random_samples(model, latent_dim=16, device="cpu"):
+    model.eval()
+    z_rand = torch.randn(16, latent_dim).to(device)
+    with torch.no_grad():
+        samples = model.decode(z_rand)
+    plt.figure(figsize=(8,3))
+    for i in range(8):
+        plt.subplot(1,8,i+1)
+        plt.imshow(samples[i,0].cpu(), cmap="gray")
+        plt.axis("off")
+    plt.suptitle("Random Samples from Latent Space")
+    plt.show()
