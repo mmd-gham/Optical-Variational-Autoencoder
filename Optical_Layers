@@ -1,0 +1,46 @@
+import torch
+import torch.nn as nn
+
+def quantize_phase(theta, bits=6):
+    levels = 2 ** bits
+    return torch.round(theta / (2 * torch.pi) * levels) / levels * (2 * torch.pi)
+
+class OpticalLayer(nn.Module):
+    """
+    Optical 4f-style layer: FFT -> Phase mask -> IFFT -> Intensity
+    """
+    def __init__(self, shape, channels, phase_bits=6):
+        super().__init__()
+        self.H, self.W = shape
+        self.channels = channels
+        self.phase_bits = phase_bits
+
+        self.phase = nn.Parameter(2 * torch.pi * torch.rand(channels, self.H, self.W))
+        self.amplitude = nn.Parameter(torch.ones(channels, self.H, self.W))
+
+    def forward(self, x):
+        device = x.device
+        outputs = []
+        phase_param = self.phase.to(device)
+        amplitude_param = self.amplitude.to(device)
+
+        for c in range(self.channels):
+            field = torch.complex(x[:, 0], torch.zeros_like(x[:, 0]))
+            spectrum = torch.fft.fftshift(torch.fft.fft2(field), dim=(-2, -1))
+
+            theta = quantize_phase(phase_param[c], self.phase_bits)
+            mask = amplitude_param[c] * torch.exp(1j * theta)
+
+            modulated = spectrum * mask
+            out_field = torch.fft.ifft2(torch.fft.ifftshift(modulated, dim=(-2, -1)))
+            intensity = torch.abs(out_field) ** 2
+
+            intensity = intensity / (intensity.sum(dim=(-2, -1), keepdim=True) + 1e-8)
+            outputs.append(intensity.unsqueeze(1))
+
+        return torch.cat(outputs, dim=1)
+
+    def phase_smoothness(self):
+        dx = self.phase[:, 1:, :] - self.phase[:, :-1, :]
+        dy = self.phase[:, :, 1:] - self.phase[:, :, :-1]
+        return dx.abs().mean() + dy.abs().mean()
