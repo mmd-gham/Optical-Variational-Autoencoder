@@ -12,7 +12,7 @@ A core property of the Fourier transform:
 Fourier{ f(x,y) * h(x,y) } = Fourier{f(x,y)} · Fourier{h(x,y)}
 ```
 
-This means **convolution in the spatial domain** is equivalent to **point-wise multiplication in the frequency domain**. Free-space optical systems exploit this by performing Fourier transforms with lenses, multiplying by a phase mask, and then inverse transforming back to spatial intensity.([MDPI][1])
+This means **convolution in the spatial domain** is equivalent to **point-wise multiplication in the frequency domain**. Free-space optical systems exploit this by performing Fourier transforms with lenses, multiplying by a phase mask, and then inverse transforming back to spatial intensity.
 
 ### Model Highlights
 
